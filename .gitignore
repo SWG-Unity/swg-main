@@ -1,0 +1,10 @@
+build/
+chat/
+configs/
+data/
+dependencies/
+miff/
+.setup
+local.properties
+*.log
+webcfg.properties
