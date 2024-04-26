@@ -1,7 +1,7 @@
 <project name="SWGBuild" default="echoprops" xmlns:if="ant:if" xmlns:unless="ant:unless">
 	<import file="git_targets.xml" />
 	<description>
-		This build file will build all aspects of the SWG Source Code.  Created by Cekis (cekisswg@gmail.com).
+		This build file will build all aspects of the SWG Unity Code.  Created by polsommer .
 	</description>
 	<!-- Get our host info -->
 	<hostinfo/>
@@ -503,18 +503,7 @@
 		<symlink link="${basedir}/exe/linux/bin" resource="${tools_home}" overwrite="true"/>
 	</target>
 
-    <target name="webcfg-check-for-file">
-        <available file="webcfg.properties" property="webcfg.properties.present"/>
-    </target>
-
-    <target name="webcfg" description="Fetches the settings using the SWG Auth WebCFG API" depends="webcfg-check-for-file" if="webcfg.properties.present">
-        <property file="webcfg.properties" />
-        <echo message="Server path: ${serverpath}" />
-        <echo message="File Path: ${filepath}" />
-        <get src="${serverpath}" dest="${filepath}" />
-    </target>
-
-	<target name="start" description="starts the server" depends="create_symlinks,stop,webcfg">
+	<target name="start" description="starts the server" depends="create_symlinks,stop">
 		<exec executable="./exec.sh" />
 	</target>
 	
