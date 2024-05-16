@@ -1,42 +1,49 @@
-#/bin/bash
+#!/bin/bash
 
-DIR="$( dirname "${BASH_SOURCE[0]}" )"
-
+# Set script variables
+DIR="$(dirname "${BASH_SOURCE[0]}")"
 destination="data/sku.0/sys.server/compiled/game"
 sourcepath="dsrc/sku.0/sys.server/compiled/game"
 
-mkdir -p $destination/script
+# Create necessary directories
+mkdir -p "$destination/script"
 
-filenames=$(find $sourcepath -name '*.java')
-spinstr='|/-\'
-i=0
+# Find all Java files in the source path
+readarray -d $'\0' filenames < <(find "$sourcepath" -name '*.java' -print0)
+total=${#filenames[@]}
 current=0
-total=$(ls ${filenames[@]} | wc -l)
 
-compile () {
-    OFILENAME=${filename/$sourcepath/$destination}
-    OFILENAME=${OFILENAME/java/class}
+# Function to compile a Java file
+compile() {
+    local filename="$1"
+    local OFILENAME="${filename/$sourcepath/$destination}"
+    OFILENAME="${OFILENAME/java/class}"
 
-    if [[ -e $OFILENAME && $filename -nt $OFILENAME ]] || [ ! -e $OFILENAME ]; then
-           result=$(${DIR}/build_java_single.sh $filename 2>&1)
-    fi
-
-    if [[ ! -z $result ]]; then
-        printf "\r$filename\n"
-        printf "$result\n\n"
+    if [[ ! -e $OFILENAME || $filename -nt $OFILENAME ]]; then
+        result=$("${DIR}/build_java_single.sh" "$filename" 2>&1)
+        if [[ ! -z $result ]]; then
+            printf "\r$filename\n$result\n\n"
+        fi
     fi
 }
 
-for filename in $filenames; do
-    current=$((current+1))
-    i=$(( (i+1) %4 ))
-    perc=$(bc -l <<< "scale=0; $current*100/$total")
-    printf "\rCompiling java scripts : [${spinstr:$i:1}] $perc%%"
-	while [ `jobs | wc -l` -ge 8 ]
-        do
-                sleep 5
-        done
-        compile $filename & done
+# Loop through each Java file and compile in parallel with limited concurrency
+for filename in "${filenames[@]}"; do
+    compile "$filename" &
+
+    # Update progress bar
+    current=$((current + 1))
+    perc=$((current * 100 / total))
+    printf "\rCompiling java scripts: [%d%%]" "$perc"
+
+    # Limit the number of concurrent jobs to improve efficiency
+    while [[ $(jobs -p | wc -l) -ge 8 ]]; do
+        sleep 1
+    done
+done
+
+# Wait for all background jobs to complete
 wait
 
+# Print newline after completion
 echo ""
