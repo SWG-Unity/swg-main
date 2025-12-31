@@ -1,7 +1,7 @@
 <project name="SWGBuild" default="echoprops" xmlns:if="ant:if" xmlns:unless="ant:unless">
 	<import file="git_targets.xml" />
 	<description>
-		This build file will build all aspects of the SWG Unity Code.  Created by polsommer .
+		This build file will build all aspects of the SWG Source Code.  Created by Cekis (cekisswg@gmail.com).
 	</description>
 	<!-- Get our host info -->
 	<hostinfo/>
@@ -13,10 +13,10 @@
 	<!-- Global Properties -->
 	<property name="build" location="${basedir}/build"/>
 
-	<!-- Database Service Name is derived to make it easier in the properties file -->
-	<property name="service_name" value="//127.0.0.1/${db_service}"/>
-
 	<property name="dbip" value="${ADDR4}"/>
+
+	<!-- Database Service Name is derived to make it easier in the properties file -->
+	<property name="service_name" value="//${dbip}/${db_service}"/>
 
 	<!-- Setup Source Directories -->
 	<property name="exe" location="${basedir}/exe"/>
@@ -205,6 +205,24 @@
 			<replacefilter token="DBUSERNAME" property="db_username"/>
 			<replacefilter token="DBSERVICE" value="${service_name}"/>
 			<replacefilter token="DBPASSWORD" property="db_password"/>
+		</replace>
+		<antcall target="set_ubuntu_cfg"/>
+	</target>
+
+	<exec executable="bash" outputproperty="os_version_id">
+		<arg value="-c"/>
+		<arg value="source /etc/os-release &amp;&amp; echo $VERSION_ID"/>
+	</exec>
+
+	<condition property="is_ubuntu18">
+		<equals arg1="${os_version_id}" arg2="18.04"/>
+	</condition>
+
+	<target name="set_ubuntu_cfg" if="is_ubuntu18">
+		<replace dir="${exe}">
+			<include name="**/*.cfg"/>
+			<replacefilter token="environmentVariable=PATH+=/usr/java/bin:./" value="environmentVariable=PATH+=/usr/lib/jvm/java-11-openjdk-i386/bin:./"/>
+			<replacefilter token="environmentVariable=LD_LIBRARY_PATH+=/usr/java/lib:/usr/java/lib/server:./" value="environmentVariable=LD_LIBRARY_PATH+=/usr/lib/jvm/java-11-openjdk-i386/lib:/usr/lib/jvm/java-11-openjdk-i386/lib/server:./"/>
 		</replace>
 	</target>
 	
@@ -457,7 +475,7 @@
 	<target name="add_new_cluster" description="Adds the cluster name to the database" if="firstrun">
 		<sql classpath="${env.ORACLE_HOME}/lib/ojdbc8.jar"
 			 driver="oracle.jdbc.OracleDriver"
-			 url="jdbc:oracle:thin:@${dbip}:1521:${db_service}"
+			 url="jdbc:oracle:thin:@//${dbip}:1521/${db_service}"
 			 userid="${db_username}"
 			 password="${db_password}">
 			insert into cluster_list (id, name, num_characters, address, secret, locked, not_recommended)
@@ -469,7 +487,7 @@
 	<target name="configure_limits" description="Defines the limits of the cluster and accounts in the database">
 		<sql classpath="${env.ORACLE_HOME}/lib/ojdbc8.jar"
 			 driver="oracle.jdbc.OracleDriver"
-			 url="jdbc:oracle:thin:@${dbip}:1521:${db_service}"
+			 url="jdbc:oracle:thin:@//${dbip}:1521/${db_service}"
 			 userid="${db_username}"
 			 password="${db_password}">
 			update default_char_limits set account_limit = ${max_characters_per_account}, cluster_limit = ${max_characters_per_cluster};
@@ -503,7 +521,18 @@
 		<symlink link="${basedir}/exe/linux/bin" resource="${tools_home}" overwrite="true"/>
 	</target>
 
-	<target name="start" description="starts the server" depends="create_symlinks,stop">
+    <target name="webcfg-check-for-file">
+        <available file="webcfg.properties" property="webcfg.properties.present"/>
+    </target>
+
+    <target name="webcfg" description="Fetches the settings using the SWG Auth WebCFG API" depends="webcfg-check-for-file" if="webcfg.properties.present">
+        <property file="webcfg.properties" />
+        <echo message="Server path: ${serverpath}" />
+        <echo message="File Path: ${filepath}" />
+        <get src="${serverpath}" dest="${filepath}" />
+    </target>
+
+	<target name="start" description="starts the server" depends="create_symlinks,stop,webcfg">
 		<exec executable="./exec.sh" />
 	</target>
 	
